@@ -1,0 +1,39 @@
+
+
+
+
+%let inpath= %str(/folders/myshortcuts/myfolder/);
+%let infile = %str(Commerzbank Product-Search-3.xlsx);
+
+
+libname indat "&inpath./data";
+
+proc import datafile ="&inpath./&infile."
+dbms=xlsx replace out = indat.disco1(keep=wkn cap bewertungstag brief geld);
+run;
+
+%let quote=7;
+
+data data.disco_check (keep = wkn cap_max price num_days pct_max pct_per_day discount);
+   format wkn $8. cap_max 4.2 price 4.2 num_days 4. pct_max 5.2;
+   set indat.disco1;
+   format to_date as_of_date yymmdd10. ;
+   price = max (input (geld,commax6.2),input(brief,commax6.2));
+   cap_max=input (scan (cap,1,' '),commax4.2);
+   to_date = input (bewertungstag,ddmmyy10.);
+   as_of_date = date();
+   num_days = sum(to_date,-as_of_date);
+   pct_max=100*((cap_max/price)-1);
+   pct_per_day = pct_max/num_days;
+   discount=100*((&quote./cap_max)-1);
+run;  
+
+%let outfile = %str(db_disco_eval.xlsx);
+
+
+proc sort data=data.disco_check;
+  by num_days cap_max ;
+run;  
+
+proc export data =data.disco_check dbms=xlsx outfile="&inpath./&outfile." replace;
+run;
